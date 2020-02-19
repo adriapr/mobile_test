@@ -1,0 +1,800 @@
+<!doctype html>
+<title>DKS behavioural test tool | Daon</title>
+
+<script src="includes/fp2.min.js"></script>
+<script src="includes/clock_precission.js"></script>
+
+<!-- <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js"></script> -->
+<script type="text/javascript">
+
+	// declare and initialise to empty arrays
+	var events_keyboard = [];
+	var events_touch = [];
+	var events_mouse = [];
+	var events_acc = [];
+	var events_gyro = [];
+	// var events_magn = [];
+
+	var clock_info = {};
+
+	var kd = {};
+	var inp = {};
+	var ku = {};
+
+	var touch_start = {};
+	var touch_move = {};
+	var touch_cancel = {};
+	var touch_end = {};
+
+	var mouse_down = {};
+	var mouse_move = {};
+	var mouse_up = {};
+	var mouse_wheel = {};
+
+	var is_mouse_down = false
+	var num_events_mouse = 0 // we initialise it here as mosue wheel can happen before mouse down
+	var mouse_wheel_accumulated_delta = 0
+
+	var fp_info = {}
+	fp_info.hash = ''
+	fp_info.fields = {}
+
+	var user_agent = navigator.userAgent;
+	var	is_mobile = false
+	var	is_android = false
+	var acc = {}
+	var gyro = {}
+
+	var start_time = (new Date).getTime()
+
+	//https://stackoverflow.com/questions/11547672/how-to-stringify-event-object
+	// function stringifyEvent(e) {
+	//   const obj = {};
+	//   for (let k in e) {
+	//   	if (k != "originalTarget") { // originalTarget throws an error when stringyfied if mouse moves over an input text
+	//     	obj[k] = e[k];
+	// 	}
+	//   }
+	//   return JSON.stringify(obj, (k, v) => {
+	//     if (v instanceof Node) return 'Node';
+	//     if (v instanceof Window) return 'Window';
+	//     return v;
+	//   }, ' ');
+	// }
+
+	function stringifyEvent(object, depth = 0, max_depth = 2) {
+		if (depth > max_depth) return "Object";
+		const obj = {};
+		for (let key in object) {
+			let value = object[key];
+			// if (value instanceof Node)
+			// 	value = { id: value.id };
+			if (value instanceof Node)
+				value = "Node";
+			else if (value instanceof Window)
+				value = "Window";
+			else if (value instanceof Object)
+				value = stringifyEvent(value, depth + 1, max_depth);
+			obj[key] = value;
+		}
+
+		return depth ? obj : JSON.stringify(obj);
+	}
+
+	function stringify_all_data(all_data) {
+		const obj = {};
+		for (let key in all_data) {
+			obj[key] = stringifyEvent(all_data[key]);
+		}
+		return obj
+	}
+
+	function round(value) {
+		return Math.round(value * 10) / 10;
+		// return value.to_fixed(1)
+	}
+
+	function create_keystrokes_table(kd, inp, ku, num_events_kb) {
+
+		table_html = '<table width="100%"> <tbody> <tr> <td><b>Event</b></td> <td><b>Time reported</b></td> <td><b>Time measured</b></td> <td><b>.keyCode</b></td> <td><b>.key</b></td> <td><b>.code</b></td> <td><b>.data</b></td> </tr>'
+
+		table_html += '<tr><td>keydown</td> <td>' + round(kd.time_reported) + '</td> <td>' + round(kd.time_measured) + '</td> <td>' + kd.keyCode +  '</td> <td>' + kd.key + '</td> <td>' + kd.code + '</td> <td></td></tr>'
+
+		table_html += '<tr><td>input</td> <td>' + round(inp.time_reported) + '</td> <td>' + round(inp.time_measured) + '</td> <td>' + inp.keyCode +  '</td> <td>' + inp.key + '</td> <td>' + inp.code + '</td> <td>' + inp.data + '</td></tr>'
+
+		table_html += '<tr><td>keyup</td> <td>' + round(ku.time_reported) + '</td> <td>' + round(ku.time_measured) + '</td> <td>' + ku.keyCode +  '</td> <td>' + ku.key + '</td> <td>' + ku.code + '</td> <td></td></tr> </tbody> </table>'
+
+		table_html += 'Pressed time (reported): ' + round(ku.time_reported - kd.time_reported) + ' ms <br>'
+		table_html += 'Pressed time (measuredd): ' + round(ku.time_measured - kd.time_measured) + ' ms <br>'
+		table_html += 'Number of captured key events: ' + num_events_kb
+
+		return table_html
+	}
+
+	function create_touch_table(touch_start, touch_move, touch_cancel, touch_end, num_events_touch) {
+
+		table_html = '<table width="100%"> <tbody> <tr> <td><b>event</b></td> <td><b>ID</b></td> <td><b>#touches</b></td> <td><b>time reported</b></td> <td><b>time measured</b></td> <td><b>.screen</b></td> <td><b>.page</b></td> <td><b>.client</b></td> <td><b>.radius</b></td> <td><b>.rotation</b></td> <td><b>.force</b></td> </tr>'
+
+		table_html += '<tr> <td>start</td> <td>'
+					+ touch_start.touch_id + '</td> <td>' 
+					+ touch_start.changed_touches + '</td> <td>'
+					+ round(touch_start.time_reported) +  '</td> <td>'
+					+ round(touch_start.time_measured) + '</td> <td>'
+					+ round(touch_start.screenX) + ', ' + round(touch_start.screenY) + '</td> <td>'
+					+ round(touch_start.pageX) + ', '+ round(touch_start.pageY) + '</td> <td>'
+					+ round(touch_start.clientX) + ', '+ round(touch_start.clientY) + '</td> <td>'
+					+ round(touch_start.radiusX) + ', '+ round(touch_start.radiusY) + '</td> <td>'
+					+ round(touch_start.rotationAngle) + '</td> <td>'
+					+ round(touch_start.force) + '</td></tr>'
+
+		table_html += '<tr> <td>move</td> <td>'
+					+ touch_move.touch_id + '</td> <td>' 
+					+ touch_move.changed_touches + '</td> <td>'
+					+ round(touch_move.time_reported) +  '</td> <td>'
+					+ round(touch_move.time_measured) + '</td> <td>'
+					+ round(touch_move.screenX) + ', ' + round(touch_move.screenY) + '</td> <td>'
+					+ round(touch_move.pageX) + ', '+ round(touch_move.pageY) + '</td> <td>'
+					+ round(touch_move.clientX) + ', '+ round(touch_move.clientY) + '</td> <td>'
+					+ round(touch_move.radiusX) + ', '+ round(touch_move.radiusY) + '</td> <td>'
+					+ round(touch_move.rotationAngle) + '</td> <td>'
+					+ round(touch_move.force) + '</td></tr>'
+
+		table_html += '<tr> <td>end</td> <td>'
+					+ touch_end.touch_id + '</td> <td>' 
+					+ touch_end.changed_touches + '</td> <td>'
+					+ round(touch_end.time_reported) +  '</td> <td>'
+					+ round(touch_end.time_measured) + '</td> <td>'
+					+ round(touch_end.screenX) + ', ' + round(touch_end.screenY) + '</td> <td>'
+					+ round(touch_end.pageX) + ', '+ round(touch_end.pageY) + '</td> <td>'
+					+ round(touch_end.clientX) + ', '+ round(touch_end.clientY) + '</td> <td>'
+					+ round(touch_end.radiusX) + ', '+ round(touch_end.radiusY) + '</td> <td>'
+					+ round(touch_end.rotationAngle) + '</td> <td>'
+					+ round(touch_end.force) + '</td></tr>'
+
+		table_html += '<tr> <td>cancel</td> <td>'
+					+ touch_cancel.touch_id + '</td> <td>' 
+					+ touch_cancel.changed_touches + '</td> <td>'
+					+ round(touch_cancel.time_reported) +  '</td> <td>'
+					+ round(touch_cancel.time_measured) + '</td> <td>'
+					+ round(touch_cancel.screenX) + ', ' + round(touch_cancel.screenY) + '</td> <td>'
+					+ round(touch_cancel.pageX) + ', '+ round(touch_cancel.pageY) + '</td> <td>'
+					+ round(touch_cancel.clientX) + ', '+ round(touch_cancel.clientY) + '</td> <td>'
+					+ round(touch_cancel.radiusX) + ', '+ round(touch_cancel.radiusY) + '</td> <td>'
+					+ round(touch_cancel.rotationAngle) + '</td> <td>'
+					+ round(touch_cancel.force) + '</td></tr>'
+
+		table_html += '</tbody></table>'
+
+		table_html += 'Touch time (reported): ' + round(touch_end.time_reported - touch_start.time_reported) + ' ms <br>'
+		table_html += 'Touch time (measuredd): ' + round(touch_end.time_measured - touch_start.time_measured) + ' ms <br>'
+		table_html += 'Touch length (start to end, clientX): ' + round(touch_end.clientX - touch_start.clientX) + '<br>'
+		table_html += 'Touch length (start to end, clientY): ' + round(touch_end.clientY - touch_start.clientY) + '<br>'
+		table_html += 'Number of events in last touch: ' + num_events_touch + '<br>'
+		table_html += 'Number of touch events per second: ' + round(num_events_touch / (touch_end.time_reported - touch_start.time_reported) * 1000)
+
+		return table_html
+	}
+
+	function create_mouse_table(mouse_down, mouse_move, mouse_up, mouse_wheel, num_events_mouse) {
+
+		table_html = '<table width="100%"> <tbody> <tr> <td><b>event</b></td> <td><b>time reported</b></td> <td><b>time measured</b></td> <td><b>.screen</b></td> <td><b>.page</b></td> <td><b>.client</b></td> </tr>'
+
+		table_html += '<tr> <td>mousedown</td> <td>'
+					+ mouse_down.time_reported +  '</td> <td>'
+					+ mouse_down.time_measured + '</td> <td>'
+					+ round(mouse_down.screenX) + ', ' + round(mouse_down.screenY) + '</td> <td>'
+					+ round(mouse_down.pageX) + ', '+ round(mouse_down.pageY) + '</td> <td>'
+					+ round(mouse_down.clientX) + ', '+ round(mouse_down.clientY) + '</td></tr>'
+
+		table_html += '<tr> <td>mousemove</td> <td>'
+					+ mouse_move.time_reported +  '</td> <td>'
+					+ mouse_move.time_measured + '</td> <td>'
+					+ round(mouse_move.screenX) + ', ' + round(mouse_move.screenY) + '</td> <td>'
+					+ round(mouse_move.pageX) + ', '+ round(mouse_move.pageY) + '</td> <td>'
+					+ round(mouse_move.clientX) + ', '+ round(mouse_move.clientY) + '</td></tr>'
+
+		table_html += '<tr> <td>mouseup</td> <td>'
+					+ mouse_up.time_reported +  '</td> <td>'
+					+ mouse_up.time_measured + '</td> <td>'
+					+ round(mouse_up.screenX) + ', ' + round(mouse_up.screenY) + '</td> <td>'
+					+ round(mouse_up.pageX) + ', '+ round(mouse_up.pageY) + '</td> <td>'
+					+ round(mouse_up.clientX) + ', '+ round(mouse_up.clientY) + '</td></tr>'
+
+		table_html += '</tbody></table>'
+
+		table_html += 'Mouse pressed time (reported): ' + round(mouse_up.time_reported - mouse_down.time_reported) + ' ms <br>'
+		table_html += 'Mouse pressed time (measuredd): ' + round(mouse_up.time_measured - mouse_down.time_measured) + ' ms <br>'
+		table_html += 'Mouse length (down to up, clientX): ' + (mouse_up.clientX - mouse_down.clientX) + '<br>'
+		table_html += 'Mouse length (down to up, clientY): ' + (mouse_up.clientY - mouse_down.clientY) + '<br>'
+		table_html += 'Number of mouse events between down and up: ' + num_events_mouse + '<br>'
+		table_html += 'Number of mouse events per second: ' + round(num_events_mouse / (mouse_up.time_reported - mouse_down.time_reported) * 1000)
+
+
+		table_html += '<table width="100%"> <tbody> <tr> <td><b>event</b></td> <td><b>time reported</b></td> <td><b>time measured</b></td> <td><b>.deltaY</b></td> <td><b>.deltaMode</b></td> <td><b>accumulated deltaY</b></td></tr>'
+				    + '<tr> <td>mousewheel</td> <td>'
+					+ mouse_wheel.time_reported +  '</td> <td>'
+					+ mouse_wheel.time_measured + '</td> <td>'
+					+ mouse_wheel.deltaY +  '</td> <td>'
+					+ mouse_wheel.deltaMode + '</td> <td>'
+					+ mouse_wheel_accumulated_delta + '</td> <td>'
+					+ '</tbody></table>'
+
+		return table_html
+	}
+
+	function create_acc_table(acc, num_events_acc, ratio_events) {
+
+		table_html = '<table width="100%"> <tbody> <tr> <td><b>event</b></td> <td><b>time reported</b></td> <td><b>time measured</b></td> <td><b>acc x</b></td> <td><b>acc y</b></td> <td><b>acc z</b></td> <td><b>rot alpha</b></td> <td><b>rot beta</b></td> <td><b>rot gamma</b></td> </tr>'
+				    + '<tr> <td>deviceMotion</td> <td>'
+					+ round(acc.time_reported) + '</td> <td>'
+					+ round(acc.time_measured) + '</td> <td>'
+					+ round(acc.x) +  '</td> <td>'
+					+ round(acc.y) + '</td> <td>'
+					+ round(acc.z) + '</td> <td>'
+					+ round(acc.alpha) +  '</td> <td>'
+					+ round(acc.beta) + '</td> <td>'
+					+ round(acc.gamma) + '</td> </tr>'
+					+ '<tr> <td></td> <td><b>ANG x</b></td> <td><b>ANG y</b></td> <td><b>ANG z</b></td> <td><b>interval</b></td> <td><b># events</b></td> <td><b>events/s</b></td> </tr>'
+					+ '<tr> <td></td> <td>'
+					+ round(acc.x_noGrav) + '</td> <td>'
+					+ round(acc.y_noGrav) + '</td> <td>'
+					+ round(acc.z_noGrav) + '</td> <td>'
+					+ round(acc.interval) + '</td> <td>'
+					+ num_events_acc + '</td> <td>'
+					+ round(ratio_events) + '</td> <td>'
+					+ '</tbody></table>'
+
+		return table_html
+	}
+
+	function create_gyro_table(acc, num_events_gyro, ratio_events) {
+
+		table_html = '<table width="100%"> <tbody> <tr> <td><b>event</b></td> <td><b>time reported</b></td> <td><b>time measured</b></td> <td><b>akpha</b></td> <td><b>beta</b></td> <td><b>gama</b></td> <td><b>absolute</b></td> <td><b># events</b></td> <td><b>events/s</b></td> </tr>'
+				    + '<tr> <td>deviceOrientation</td> <td>'
+					+ round(acc.time_reported) + '</td> <td>'
+					+ round(acc.time_measured) + '</td> <td>'
+					+ round(acc.alpha) +  '</td> <td>'
+					+ round(acc.beta) + '</td> <td>'
+					+ round(acc.gamma) + '</td> <td>'
+					+ round(acc.absolute) + '</td> <td>'
+					+ num_events_gyro + '</td> <td>'
+					+ round(ratio_events) + '</td> <td>'
+					+ '</tbody></table>'
+
+		return table_html
+	}
+
+	function keydown_func(event) {
+		kd.time_measured = Math.round((new Date).getTime() - start_time)
+		kd.time_reported = event.timeStamp
+		kd.keyCode = event.keyCode || ''
+		kd.key = event.key || ''
+		kd.code = event.code || ''
+
+		console.log(event)
+
+		events_keyboard.push( ['keydown', event] );
+		output_keystroke.innerHTML = create_keystrokes_table(kd, inp, ku, events_keyboard.length)
+	}
+
+	function keyup_func(event) {
+		ku.time_measured = Math.round((new Date).getTime() - start_time)
+		ku.time_reported = event.timeStamp
+		ku.keyCode = event.keyCode || ''
+		ku.key = event.key || ''
+		ku.code = event.code || ''
+	
+		console.log(event)
+
+		events_keyboard.push( ['keyup', event] )
+		output_keystroke.innerHTML = create_keystrokes_table(kd, inp, ku, events_keyboard.length)
+	}
+
+	function input_func(event) {
+		inp.time_measured = Math.round((new Date).getTime() - start_time)
+		inp.time_reported = event.timeStamp
+		inp.keyCode = event.keyCode || ''
+		inp.key = event.key || ''
+		inp.code = event.code || ''
+		inp.data = event.data || ''
+		
+		console.log(event)
+
+		events_keyboard.push( ['input', event] );
+		output_keystroke.innerHTML = create_keystrokes_table(kd, inp, ku, events_keyboard.length)
+	}
+
+	function touch_start_func(event) {
+
+		num_events_touch = 1
+
+		touch_start.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		touch_start.time_reported = event.timeStamp
+		touch_start.changed_touches = event.changedTouches.length
+		touch_start.touch_id = event.changedTouches[0].identifier
+		touch_start.screenX = event.changedTouches[0].screenX
+		touch_start.screenY = event.changedTouches[0].screenY
+		touch_start.radiusX = event.changedTouches[0].radiusX
+		touch_start.radiusY = event.changedTouches[0].radiusY
+		touch_start.rotationAngle = event.changedTouches[0].rotationAngle
+		touch_start.force = event.changedTouches[0].force
+		touch_start.pageX = event.changedTouches[0].pageX
+		touch_start.pageY = event.changedTouches[0].pageY
+		touch_start.clientX = event.changedTouches[0].clientX
+		touch_start.clientY = event.changedTouches[0].clientY
+
+		console.log(event)
+
+		events_touch.push( ['touch_start', event] )
+		output_touch.innerHTML = create_touch_table(touch_start, touch_move, touch_cancel, touch_end, num_events_touch)
+	}
+
+	function touch_end_func(event) {
+		touch_end.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		touch_end.time_reported = event.timeStamp
+		touch_end.changed_touches = event.changedTouches.length
+		touch_end.touch_id = event.changedTouches[0].identifier
+		touch_end.screenX = event.changedTouches[0].screenX
+		touch_end.screenY = event.changedTouches[0].screenY
+		touch_end.radiusX = event.changedTouches[0].radiusX
+		touch_end.radiusY = event.changedTouches[0].radiusY
+		touch_end.rotationAngle = event.changedTouches[0].rotationAngle
+		touch_end.force = event.changedTouches[0].force
+		touch_end.pageX = event.changedTouches[0].pageX
+		touch_end.pageY = event.changedTouches[0].pageY
+		touch_end.clientX = event.changedTouches[0].clientX
+		touch_end.clientY = event.changedTouches[0].clientY
+
+		num_events_touch +=1
+		console.log(event)
+
+		events_touch.push( ['touch_end', event] )
+		output_touch.innerHTML = create_touch_table(touch_start, touch_move, touch_cancel, touch_end, num_events_touch)
+	}
+
+	function touch_cancel_func(event) {
+		touch_cancel.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		touch_cancel.time_reported = event.timeStamp
+		touch_cancel.changed_touches = event.changedTouches.length
+		touch_cancel.touch_id = event.changedTouches[0].identifier
+		touch_cancel.screenX = event.changedTouches[0].screenX
+		touch_cancel.screenY = event.changedTouches[0].screenY
+		touch_cancel.radiusX = event.changedTouches[0].radiusX
+		touch_cancel.radiusY = event.changedTouches[0].radiusY
+		touch_cancel.rotationAngle = event.changedTouches[0].rotationAngle
+		touch_cancel.force = event.changedTouches[0].force
+		touch_cancel.pageX = event.changedTouches[0].pageX
+		touch_cancel.pageY = event.changedTouches[0].pageY
+		touch_cancel.clientX = event.changedTouches[0].clientX
+		touch_cancel.clientY = event.changedTouches[0].clientY
+
+		num_events_touch +=1
+		console.log(event)
+
+		events_touch.push( ['touch_cancel', event] )
+		output_touch.innerHTML = create_touch_table(touch_start, touch_move, touch_cancel, touch_end, num_events_touch)
+	}
+
+	function touch_move_func(event) {
+
+		touch_move.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		touch_move.time_reported = event.timeStamp
+		touch_move.changed_touches = event.changedTouches.length
+		touch_move.touch_id = event.changedTouches[0].identifier
+		touch_move.screenX = event.changedTouches[0].screenX
+		touch_move.screenY = event.changedTouches[0].screenY
+		touch_move.radiusX = event.changedTouches[0].radiusX
+		touch_move.radiusY = event.changedTouches[0].radiusY
+		touch_move.rotationAngle = event.changedTouches[0].rotationAngle
+		touch_move.force = event.changedTouches[0].force
+		touch_move.pageX = event.changedTouches[0].pageX
+		touch_move.pageY = event.changedTouches[0].pageY
+		touch_move.clientX = event.changedTouches[0].clientX
+		touch_move.clientY = event.changedTouches[0].clientY
+
+		num_events_touch +=1
+		console.log(event)
+
+		events_touch.push( ['touch_move', event] )
+		output_touch.innerHTML = create_touch_table(touch_start, touch_move, touch_cancel, touch_end, num_events_touch)
+	}
+
+	function mouse_down_func(event) {
+		// evt.preventDefault();
+		num_events_mouse = 1
+
+		is_mouse_down = true;
+
+		mouse_down.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		mouse_down.time_reported = event.timeStamp
+		mouse_down.clientX = event.clientX
+		mouse_down.clientY = event.clientY
+		mouse_down.screenX = event.screenX
+		mouse_down.screenY = event.screenY
+		mouse_down.pageX = event.pageX
+		mouse_down.pageY = event.pageY
+
+		console.log(event)
+		console.log(['mouse_down', event])
+
+		events_mouse.push( ['mouse_down', event] )
+		output_mouse.innerHTML = create_mouse_table(mouse_down, mouse_move, mouse_up, mouse_wheel, num_events_mouse)
+	}
+
+	function mouse_up_func(event) {
+		// evt.preventDefault();
+		num_events_mouse += 1
+
+		is_mouse_down = false;
+
+		mouse_up.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		mouse_up.time_reported = event.timeStamp
+		mouse_up.clientX = event.clientX
+		mouse_up.clientY = event.clientY
+		mouse_up.screenX = event.screenX
+		mouse_up.screenY = event.screenY
+		mouse_up.pageX = event.pageX
+		mouse_up.pageY = event.pageY
+
+		console.log(event)
+
+		events_mouse.push( ['mouse_up', event] )
+		output_mouse.innerHTML = create_mouse_table(mouse_down, mouse_move, mouse_up, mouse_wheel, num_events_mouse)
+	}
+
+	function mouse_move_func(event) {
+		// evt.preventDefault();
+
+		// only accumulate if mouse is pressed
+		if (is_mouse_down == true) {
+			num_events_mouse += 1
+		}
+
+		mouse_move.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		mouse_move.time_reported = event.timeStamp
+		mouse_move.clientX = event.clientX
+		mouse_move.clientY = event.clientY
+		mouse_move.screenX = event.screenX
+		mouse_move.screenY = event.screenY
+		mouse_move.pageX = event.pageX
+		mouse_move.pageY = event.pageY
+
+		console.log(event)
+
+		events_mouse.push( ['mouse_move', event] )
+		output_mouse.innerHTML = create_mouse_table(mouse_down, mouse_move, mouse_up, mouse_wheel, num_events_mouse)
+	}
+
+	function mouse_wheel_func(event) {
+
+		// evt.preventDefault();
+		// num_events_mouse += 1
+
+		mouse_wheel.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		mouse_wheel.time_reported = event.timeStamp
+		mouse_wheel.deltaY = event.deltaY
+		mouse_wheel.deltaMode = event.deltaMode
+
+		mouse_wheel_accumulated_delta += event.deltaY
+
+		console.log(event)
+
+		events_mouse.push( ['mouse_wheel', event] )
+		output_mouse.innerHTML = create_mouse_table(mouse_down, mouse_move, mouse_up, mouse_wheel, num_events_mouse)
+	}
+
+	function accelerometer_func(event) {
+		acc.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		acc.time_reported = event.timeStamp
+
+		acc.x = event.accelerationIncludingGravity.x
+		acc.y = event.accelerationIncludingGravity.y
+		acc.z = event.accelerationIncludingGravity.z
+
+		acc.x_noGrav = event.acceleration.x
+		acc.y_noGrav = event.acceleration.y
+		acc.z_noGrav = event.acceleration.z
+
+		acc.alpha = event.rotationRate.alpha
+		acc.beta = event.rotationRate.beta
+		acc.gamma = event.rotationRate.gamma
+
+		acc.interval = event.interval
+
+		events_acc.push(event)
+		console.log(event)		
+
+		if (acc.time_measured > 0) { rate = events_acc.length / acc.time_measured * 1000 }
+		else { rate = 0 } 
+
+		output_acc.innerHTML = create_acc_table(acc, events_acc.length, rate)
+
+		// // check if it is a mobile device based on accelerometer, but only once
+		// if (!is_mobile && events_acc.length > 1) {
+		// 	document.getElementById("status_mobile").innerHTML = "Device is mobile as accelerometer was found"
+		// 	is_mobile = true
+		// }
+	}
+
+	function gyro_func(event) {
+		gyro.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+		gyro.time_reported = event.timeStamp
+		gyro.absolute = event.absolute
+		gyro.alpha = event.alpha
+		gyro.beta = event.beta
+		gyro.gamma = event.gamma
+
+		events_gyro.push(event)
+		console.log(event)		
+
+		if (gyro.time_measured > 0) { rate = events_gyro.length / gyro.time_measured * 1000 }
+		else { rate = 0 } 
+
+		output_gyro.innerHTML = create_gyro_table(gyro, events_gyro.length, rate)
+	}
+
+	// function magnetometer_func(event) {
+	// 	magn.time_measured = Math.round((new Date).getTime() - start_time) // this makes events in android and iOS to have comparable timestamps
+	// 	magn.time_reported = event.timeStamp
+	// 	magn.x = event.absolute
+	// 	magn.y = event.alpha
+	// 	magn.z = event.beta
+
+	// 	events_magn.push(event)
+	// 	console.log(event)		
+
+	// 	if (magn.time_measured > 0) { rate = events_magn.length / magn.time_measured * 1000 }
+	// 	else { rate = 0 } 
+
+	// 	output_magn.innerHTML = events_magn.length + "<br>" + magn
+	// 	// output_magn.innerHTML = create_magn_table(magn, events_magn.length, rate)
+	// }
+
+
+	function isMobile(userAgent) {
+	    return !!userAgent.match(/(Android|webOS|iPhone|iPad|iPod|BlackBerry|Windows Phone)/i);
+	}
+
+	function isAndroid(userAgent) {
+	    return !!userAgent.match(/(Android)/i);
+	}
+
+	function ask_sensor_permissions() {
+
+		DeviceMotionEvent.requestPermission()
+		  .then(res => {
+		    if (res === "granted") {
+				console.log("Motion events pemrission granted");
+				document.getElementById("output_acc").innerHTML = ""
+		    } else {
+				console.log("Motion events pemrission denied");
+			    return new Error("user denied access on motion data");
+		    }
+		  })
+		  .catch(err => new Error(err));
+
+		// window.addEventListener('deviceorientation', gyro_func, false)
+		// console.log("Orientation events initalised");
+	}
+
+
+	window.onload = function() {
+
+		// document.getElementById("submit_button").disabled = true;
+
+		new Fingerprint2().get(function(result, components) {
+			fp_info.hash = result;
+			fp_info.fields = [];
+
+			for (let i = 0; i < components.length; i++) {
+				// discard these fields, I would love to tell fp2 not to compute them, but didnt manage to use the excludein options...
+				if (components[i].key != 'canvas' && components[i].key != 'webgl' && components[i].key != 'js_fonts') {
+					(fp_info.fields).push(components[i])
+					output_fingerprint.innerHTML += components[i].key + ': ' + components[i].value + '<br>'
+				}
+
+				// put user agent in a separate attribute for simplicity later
+				if (components[i].key == 'user_agent') {
+					fp_info.user_agent = components[i].value
+				}
+			}
+
+			console.log("Fingerprinting finished")
+			console.log(fp_info)
+		})
+
+
+		// detect if mobile and what type first
+		is_mobile = isMobile(user_agent)
+		if (is_mobile) {
+			document.getElementById("status_mobile").innerHTML = "Device is mobile (user_agent)"
+
+			is_android = isAndroid(user_agent)
+			if (is_android) {
+				document.getElementById("status_mobile_type").innerHTML = "Device is Android (user_agent)"
+			} else {
+				document.getElementById("status_mobile_type").innerHTML = "Device is iPhone (not Android, user_agent)"
+			}
+
+		} else {
+			document.getElementById("status_mobile").innerHTML = "Device is not mobile (user_agent)"
+		}
+
+
+		// on iOS >= 12.2, we need to ask permission to acces acceleromter or gyro first (I hate you Apple, though the idea is nice)
+		if (typeof DeviceMotionEvent.requestPermission === 'function') {
+		  // iOS 13+
+		} else {
+		  // non iOS 13+
+		}
+
+
+		// add accelerometer event listener first, to see if it is mobile at the end of the function
+		window.addEventListener('devicemotion', accelerometer_func, false)
+		console.log("Motion events initalised");
+
+		window.addEventListener('deviceorientation', gyro_func, false)
+		console.log("Orientation events initalised");
+
+		// window.addEventListener('deviceorientation', magn_func, false)
+		// console.log("Magnetometer events initalised");
+
+
+		// fake_event = {}
+		// fake_event.timeStamp = 0
+		// fake_event.accelerationIncludingGravity = {}
+		// fake_event.accelerationIncludingGravity.x = 0
+		// fake_event.accelerationIncludingGravity.y = 0
+		// fake_event.accelerationIncludingGravity.z = 0
+		// accumulate_accelerometer_func(fake_event)
+		// accumulate_accelerometer_func(fake_event)
+
+
+		// navigator.permissions.query({name:'magnetometer'}).then(function(result) {
+		//   if (result.state === 'granted') {
+		//     cosnole.log('granted');
+		//   } else if (result.state === 'prompt') {
+		//     cosnole.log('prompt');
+		//   }
+
+		//   console.log(result)
+		//   // Don't do anything if the permission was denied.
+		// });
+
+
+
+		// Keystrokes
+		window.addEventListener('keydown', keydown_func, false)
+		window.addEventListener('keyup', keyup_func, false)
+		window.addEventListener('input', input_func, false)
+		console.log("Key events initalised");
+
+		window.addEventListener("touchstart", touch_start_func, false);
+		document.addEventListener("touchend", touch_end_func, false);
+		window.addEventListener("touchcancel", touch_cancel_func, false);
+		window.addEventListener("touchmove", touch_move_func, false);
+		console.log("Touch events initalised");
+
+		window.addEventListener("mouseup", mouse_up_func, false);
+		window.addEventListener("mousedown", mouse_down_func, false);
+		window.addEventListener("mousemove", mouse_move_func, false);
+		window.addEventListener("wheel", mouse_wheel_func, false);
+		console.log("Mouse events initalised");
+
+		clock_info = assess_clock_performance()
+		document.getElementById("clock_precission").innerHTML = clock_info.string;
+		console.log("Clock precission computed");
+	}
+
+
+	function store_data() {
+
+		document.getElementById("submit_button").innerHTML = 'Creating file...';
+
+		var json_content = {
+								"keystrokes" : events_keyboard,
+								"touch" : events_touch,
+								"mouse" : events_mouse,
+								"accelerometer" : events_acc,
+								"gyroscope" : events_gyro,
+								// "magnetometer" : events_magn,
+							}
+
+		for (let key in json_content) {
+			for (let ii = 0; ii < json_content[key].length; ii++) {
+				// dirty way to avoiud stringiying twice, as we already have the events stringyfied
+				json_content[key][ii] = JSON.parse(stringifyEvent(json_content[key][ii]))
+			}
+		}
+
+		json_content["clock"] = clock_info;
+		json_content["fingerprint"] = fp_info;
+
+		json_content = JSON.stringify(json_content)
+
+		// https://stackoverflow.com/a/18197511/2090899
+		var pom = document.createElement('a');
+		pom.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(json_content));
+		pom.setAttribute('download', 'events.json');
+
+		if (document.createEvent) {
+		    var event = document.createEvent('MouseEvents');
+		    event.initEvent('click', true, true);
+		    pom.dispatchEvent(event);
+		}
+		else {
+		    pom.click();
+		}		
+	}
+
+</script>
+
+<!-- <script src=http://dystroy.org/JSON.prune/JSON.prune.js></script>
+ -->
+
+<link rel="stylesheet" type= "text/css" href="includes/style.css">
+<link rel="shortcut icon" href="includes/favicon.ico">
+
+<div class="main_body">
+	<div align="center">
+
+		<font size="2">
+			<span id="status_mobile"></span> <br>
+			<span id="status_mobile_type"></span>
+		</font>
+	
+		<table align="center" border="0" width="85%">
+			<br>
+			<input id="input_text" type="email" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+			<br>
+		</table>
+	</div>
+
+	<br>
+
+	<font size="2">
+		- Keystrokes -
+		<div id="output_keystroke"></div>
+		<hr>
+
+		- Mouse -
+		<div id="output_mouse"></div>		
+		<hr>
+
+		- Touch -
+		<div id="output_touch"></div>		
+		<hr>
+
+		- Motion -
+		<div id="output_acc">
+			iOS will only report acceleromter and gyro data if connected using HTTPS (Android is fine)
+		</div>
+		<hr>
+
+		- Orientation -
+		<div id="output_gyro">
+			<button type="button" onclick="ask_sensor_permissions()">Enable sensors</button>
+			This is needed (and only works) for iOS >12.2
+		</div>
+		<hr>
+
+		- Fingerprint -
+		<div id="output_fingerprint"></div>
+		<hr>
+
+		<!-- <div align="center" style="display: none"> -->
+		<div align="center">
+			<span id="clock_precission"></span>
+		</div>
+
+		<div align="center" id="submit_button">
+			<br>
+			<button type="button"  onclick="store_data()">Store all events as JSON</button>
+<!-- 			<a href="{{ url_for('initial') }}">Reload</a> -->
+		</div>
+
+
+	</font>
+
+
+</div>
