@@ -564,17 +564,26 @@
 		DeviceMotionEvent.requestPermission()
 		  .then(res => {
 		    if (res === "granted") {
-				console.log("Motion events pemrission granted");
+				console.log("DeviceMotionEvents permission granted");
 				document.getElementById("output_acc").innerHTML = ""
 		    } else {
-				console.log("Motion events pemrission denied");
+				console.log("Motion events permission denied");
 			    return new Error("user denied access on motion data");
 		    }
 		  })
 		  .catch(err => new Error(err));
 
-		// window.addEventListener('deviceorientation', gyro_func, false)
-		// console.log("Orientation events initalised");
+		DeviceOrientationEvent.requestPermission()
+		  .then(res => {
+		    if (res === "granted") {
+				console.log("DeviceOrientationEvent pemimssion granted");
+				document.getElementById("output_acc").innerHTML = ""
+		    } else {
+				console.log("DeviceOrientationEvent permission denied");
+			    return new Error("user denied access on motion data");
+		    }
+		  })
+		  .catch(err => new Error(err));
 	}
 
 
