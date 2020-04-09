@@ -565,11 +565,8 @@
 		  .then(res => {
 		    if (res === "granted") {
 				console.log("DeviceMotionEvents permission granted");
-				document.getElementById("output_acc").innerHTML = "Permission granted"
+				document.getElementById("output_extra").innerHTML += "Device Motion permission granted<br>"
 
-				// re-add accelerometer event listener
-				window.addEventListener('devicemotion', accelerometer_func, false)
-				console.log("Motion events initalised");
 		    } else {
 				console.log("Motion events permission denied");
 			    return new Error("user denied access on motion data");
@@ -581,11 +578,8 @@
 		  .then(res => {
 		    if (res === "granted") {
 				console.log("DeviceOrientationEvent pemimssion granted");
-				document.getElementById("output_gyro").innerHTML = "Permission granted"
+				document.getElementById("output_extra").innerHTML += "Device Orientation permission granted<br>"
 
-				// re-add gyroscope event listener
-				window.addEventListener('deviceorientation', gyro_func, false)
-				console.log("Orientation events initalised");
 		    } else {
 				console.log("DeviceOrientationEvent permission denied");
 			    return new Error("user denied access on motion data");
@@ -593,6 +587,10 @@
 		  })
 		  .catch(err => new Error(err));
 
+
+		// re-add accelerometer event listener
+		window.addEventListener('devicemotion', accelerometer_func, false)
+		console.log("Motion events initalised");
 
 		window.addEventListener('deviceorientation', gyro_func, false)
 		console.log("Orientation events initalised");
@@ -807,6 +805,11 @@
 		<div align="center">
 			<span id="clock_precission"></span>
 		</div>
+
+		- Extra ouptuts -
+		<div id="output_extra"></div>
+		<hr>
+
 
 		<div align="center" id="submit_button">
 			<br>
