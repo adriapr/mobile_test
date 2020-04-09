@@ -565,9 +565,9 @@
 		  .then(res => {
 		    if (res === "granted") {
 				console.log("DeviceMotionEvents permission granted");
-				document.getElementById("output_acc").innerHTML = ""
+				document.getElementById("output_acc").innerHTML = "DeviceMotionEvents permission granted"
 		    } else {
-				console.log("Motion events permission denied");
+				console.log("DeviceMotionEvents permission denied");
 			    return new Error("user denied access on motion data");
 		    }
 		  })
@@ -577,7 +577,7 @@
 		  .then(res => {
 		    if (res === "granted") {
 				console.log("DeviceOrientationEvent pemimssion granted");
-				document.getElementById("output_acc").innerHTML = ""
+				document.getElementById("output_gyro").innerHTML = "DeviceOrientationEvent pemimssion granted"
 		    } else {
 				console.log("DeviceOrientationEvent permission denied");
 			    return new Error("user denied access on motion data");
