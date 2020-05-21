@@ -293,10 +293,10 @@
 	function input_func(event) {
 		inp.time_measured = Math.round((new Date).getTime() - start_time)
 		inp.time_reported = event.timeStamp
-		inp.keyCode = event.keyCode || ''
-		inp.key = event.key || ''
-		inp.code = event.code || ''
-		inp.data = event.data || ''
+		inp.keyCode = event.keyCode || 'null'
+		inp.key = event.key || 'null'
+		inp.code = event.code || 'null'
+		inp.data = event.data || 'null'
 		
 		console.log(event)
 
