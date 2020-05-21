@@ -267,9 +267,9 @@
 	function keydown_func(event) {
 		kd.time_measured = Math.round((new Date).getTime() - start_time)
 		kd.time_reported = event.timeStamp
-		kd.keyCode = event.keyCode || ''
-		kd.key = event.key || ''
-		kd.code = event.code || ''
+		kd.keyCode = event.keyCode || 'null'
+		kd.key = event.key || 'null'
+		kd.code = event.code || 'null'
 
 		console.log(event)
 
@@ -280,9 +280,9 @@
 	function keyup_func(event) {
 		ku.time_measured = Math.round((new Date).getTime() - start_time)
 		ku.time_reported = event.timeStamp
-		ku.keyCode = event.keyCode || ''
-		ku.key = event.key || ''
-		ku.code = event.code || ''
+		ku.keyCode = event.keyCode || 'null'
+		ku.key = event.key || 'null'
+		ku.code = event.code || 'null'
 	
 		console.log(event)
 
